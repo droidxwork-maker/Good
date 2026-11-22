@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Z.ai Pro Chat (Optimized)</title>
+    
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0" />
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #0d0d0f;
+            --surface: #1a1a1e;
+            --surface-hover: #27272a;
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --text-main: #f4f4f5;
+            --text-muted: #a1a1aa;
+            --border: #27272a;
+            --ai-bubble: #1e1e24;
+            --radius: 16px;
+            --font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: var(--font-family);
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            height: 100vh;
+            height: 100dvh;
+            overflow: hidden;
+            font-size: 15px;
+        }
+
+        /* --- سایدبار --- */
+        .sidebar {
+            width: 320px;
+            background-color: var(--surface);
+            border-left: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            top: 0; right: -100%; height: 100%;
+            z-index: 1000;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .sidebar.open { transform: translateX(-100%); right: 0; }
+
+        .sidebar-header {
+            padding: 20px;
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid var(--border);
+        }
+        .sidebar-header h2 { font-size: 1.1rem; font-weight: 600; }
+
+        .sidebar-content { padding: 20px; display: flex; flex-direction: column; gap: 20px; flex: 1; overflow-y: auto; }
+
+        .form-group { display: flex; flex-direction: column; gap: 8px; }
+        .form-group label { font-size: 0.85rem; color: var(--text-muted); font-weight: 500; }
+        
+        .input-wrapper {
+            display: flex; align-items: center; background: var(--bg-color);
+            border: 1px solid var(--border); border-radius: 12px; padding: 0 12px;
+            transition: border-color 0.2s;
+        }
+        .input-wrapper:focus-within { border-color: var(--primary); }
+        .input-wrapper span { color: var(--text-muted); font-size: 1.2rem; }
+        .input-wrapper input, .input-wrapper select {
+            width: 100%; background: transparent; border: none; padding: 12px 8px;
+            color: var(--text-main); font-family: inherit; outline: none; font-size: 0.9rem;
+        }
+        .input-wrapper select option { background: var(--surface); }
+
+        .btn-primary {
+            background-color: var(--primary); color: white; border: none;
+            padding: 12px; border-radius: 12px; cursor: pointer; font-weight: 600;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            transition: background 0.2s;
+        }
+        .btn-primary:hover { background-color: var(--primary-hover); }
+
+        .btn-danger {
+            background-color: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239,68,68,0.2);
+            padding: 12px; border-radius: 12px; cursor: pointer; font-weight: 600;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            transition: background 0.2s; margin-top: auto;
+        }
+        .btn-danger:hover { background-color: rgba(239, 68, 68, 0.2); }
+
+        /* --- بخش چت --- */
+        .main-chat { flex: 1; display: flex; flex-direction: column; width: 100%; height: 100%; }
+
+        .chat-header {
+            padding: 15px 20px; border-bottom: 1px solid var(--border);
+            display: flex; justify-content: space-between; align-items: center;
+            background: rgba(13, 13, 15, 0.8); backdrop-filter: blur(10px);
+            position: sticky; top: 0; z-index: 10;
+        }
+        .header-title { display: flex; align-items: center; gap: 10px; font-weight: 600; }
+        .header-title .material-symbols-rounded { color: var(--primary); }
+
+        .icon-btn {
+            background: transparent; border: none; color: var(--text-muted);
+            width: 40px; height: 40px; border-radius: 50%; display: flex;
+            align-items: center; justify-content: center; cursor: pointer; transition: 0.2s;
+        }
+        .icon-btn:hover { background: var(--surface-hover); color: var(--text-main); }
+
+        .chat-box {
+            flex: 1; padding: 20px; overflow-y: auto;
+            display: flex; flex-direction: column; gap: 24px; scroll-behavior: smooth;
+        }
+
+        /* --- پیام‌ها --- */
+        .message { display: flex; gap: 15px; max-width: 85%; }
+        .message.user { align-self: flex-end; flex-direction: row-reverse; }
+        
+        .avatar {
+            width: 36px; height: 36px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+        .user .avatar { background: linear-gradient(135deg, #10b981, #059669); }
+        .ai .avatar { background: linear-gradient(135deg, var(--primary), #8b5cf6); }
+        .avatar .material-symbols-rounded { color: white; font-size: 20px; }
+
+        .msg-content {
+            padding: 14px 18px; border-radius: var(--radius);
+            line-height: 1.7; font-size: 0.95rem; overflow-wrap: break-word; width: fit-content;
+        }
+        .user .msg-content { background-color: var(--surface-hover); border-top-right-radius: 4px; color: #fff; }
+        .ai .msg-content { background-color: var(--ai-bubble); border: 1px solid var(--border); border-top-left-radius: 4px; }
+
+        /* استایل محتوای Markdown */
+        .msg-content p { margin-bottom: 10px; }
+        .msg-content p:last-child { margin-bottom: 0; }
+        .msg-content ul, .msg-content ol { margin: 10px 0 10px 20px; }
+        .msg-content pre {
+            background: #000 !important; border-radius: 10px; margin: 12px 0;
+            border: 1px solid #333; position: relative; direction: ltr; text-align: left;
+        }
+        .msg-content code { font-family: 'Fira Code', monospace; font-size: 0.85rem; }
+        .msg-content :not(pre) > code { background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; color: #e2e8f0; }
+
+        /* دکمه کپی کد */
+        .copy-code-btn {
+            position: absolute; top: 8px; right: 8px; background: rgba(255,255,255,0.1);
+            color: #ccc; border: none; padding: 4px 8px; border-radius: 6px;
+            font-size: 0.75rem; cursor: pointer; display: flex; align-items: center; gap: 4px;
+        }
+        .copy-code-btn:hover { background: rgba(255,255,255,0.2); }
+
+        /* --- ناحیه ارسال (Input) --- */
+        .input-wrapper-bottom {
+            padding: 15px 20px 25px 20px; background-color: var(--bg-color);
+            display: flex; justify-content: center;
+        }
+        .input-container {
+            width: 100%; max-width: 800px; background: var(--surface);
+            border: 1px solid var(--border); border-radius: 24px;
+            padding: 8px 12px; display: flex; align-items: flex-end; gap: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2); transition: border-color 0.2s;
+        }
+        .input-container:focus-within { border-color: var(--primary); }
+        
+        .input-container textarea {
+            flex: 1; background: transparent; border: none; color: var(--text-main);
+            padding: 12px 5px; resize: none; font-family: inherit; font-size: 0.95rem;
+            max-height: 150px; outline: none; line-height: 1.5;
+        }
+
+        .send-btn {
+            width: 40px; height: 40px; border-radius: 50%; background: var(--primary);
+            color: white; border: none; display: flex; align-items: center;
+            justify-content: center; cursor: pointer; transition: 0.2s; flex-shrink: 0;
+            margin-bottom: 2px;
+        }
+        .send-btn:disabled { background: var(--surface-hover); color: var(--text-muted); cursor: not-allowed; }
+        .send-btn:not(:disabled):hover { transform: scale(1.05); }
+
+        /* --- انیمیشن تایپ --- */
+        .typing-dots { display: flex; gap: 4px; padding: 4px 8px; align-items: center; height: 24px; }
+        .typing-dots span {
+            width: 6px; height: 6px; background-color: var(--text-muted);
+            border-radius: 50%; animation: bounce 1.4s infinite ease-in-out both;
+        }
+        .typing-dots span:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dots span:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes bounce { 0%, 80%, 100% { transform: scale(0.6); opacity: 0.5; } 40% { transform: scale(1); opacity: 1; } }
+
+        /* اسکرول‌بار */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--surface-hover); border-radius: 10px; }
+
+        /* ریسپانسیو */
+        @media (min-width: 769px) {
+            .sidebar { position: relative; right: 0; transform: none; box-shadow: none; }
+            .settings-btn, .close-sidebar-btn { display: none; }
+            .input-container { width: 90%; }
+        }
+    </style>
+</head>
+<body>
+
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h2>تنظیمات</h2>
+            <button class="icon-btn close-sidebar-btn" onclick="toggleSidebar()">
+                <span class="material-symbols-rounded">close</span>
+            </button>
+        </div>
+        
+        <div class="sidebar-content">
+            <div class="form-group">
+                <label>API Key (Z.ai)</label>
+                <div class="input-wrapper">
+                    <span class="material-symbols-rounded">key</span>
+                    <input type="password" id="api-key" placeholder="کلید API..." />
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>مدل</label>
+                <div class="input-wrapper">
+                    <span class="material-symbols-rounded">memory</span>
+                    <select id="model-select">
+                        <option value="glm-4.7-flash" selected>GLM-4.7-Flash (رایگان)</option>
+                        <option value="glm-4.5-flash">GLM-4.5-Flash (رایگان)</option>
+                    </select>
+                </div>
+            </div>
+
+            <button class="btn-primary" onclick="saveSettings()">
+                <span class="material-symbols-rounded">save</span>
+                ذخیره تنظیمات
+            </button>
+
+            <div id="status-text" style="font-size: 0.85rem; color: #10b981; text-align: center; height: 20px;"></div>
+
+            <button class="btn-danger" onclick="clearChat()">
+                <span class="material-symbols-rounded">delete</span>
+                پاک کردن تاریخچه چت
+            </button>
+        </div>
+    </aside>
+
+    <main class="main-chat">
+        <header class="chat-header">
+            <div class="header-title">
+                <span class="material-symbols-rounded" style="font-size: 1.8rem;">smart_toy</span>
+                <span>Z.ai Pro <span style="font-size:0.7rem; background:var(--primary); color:white; padding:2px 6px; border-radius:6px; margin-right:5px;">بهینه‌شده</span></span>
+            </div>
+            <button class="icon-btn settings-btn" onclick="toggleSidebar()">
+                <span class="material-symbols-rounded">settings</span>
+            </button>
+        </header>
+
+        <div class="chat-box" id="chat-box"></div>
+
+        <div class="input-wrapper-bottom">
+            <div class="input-container">
+                <button class="icon-btn" onclick="toggleSidebar()" style="margin-bottom: 2px;">
+                    <span class="material-symbols-rounded">add_circle</span>
+                </button>
+                <textarea id="message-input" placeholder="پیامی بنویسید... (Enter برای ارسال)" rows="1"></textarea>
+                <button class="send-btn" id="send-btn" onclick="sendMessage()">
+                    <span class="material-symbols-rounded" style="transform: rotate(180deg);">send</span>
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // --- تنظیمات حافظه ---
+        const MAX_HISTORY_TO_SEND = 15; // فقط 15 پیام آخر به API فرستاده می‌شود (جلوگیری از لگ و مصرف توکن)
+        const MAX_DOM_MESSAGES = 40;    // حداکثر پیام روی صفحه (برای جلوگیری از لگ مرورگر)
+        const SYSTEM_PROMPT = "You are a helpful and professional AI assistant. Provide clear and well-formatted answers. Remember the context of our conversation.";
+
+        let chatHistory = []; // کل تاریخچه برای ذخیره در مرورگر
+        let isGenerating = false;
+
+        window.onload = () => {
+            const savedKey = localStorage.getItem('zai_api_key');
+            const savedModel = localStorage.getItem('zai_model') || 'glm-4.7-flash';
+            if (savedKey) {
+                document.getElementById('api-key').value = savedKey;
+                document.getElementById('model-select').value = savedModel;
+            }
+
+            const savedHistory = localStorage.getItem('zai_chat_history');
+            if (savedHistory) {
+                try {
+                    chatHistory = JSON.parse(savedHistory);
+                    renderHistory();
+                } catch (e) { console.error('خطا در خواندن تاریخچه', e); }
+            } else {
+                addMessageToUI('ai', 'سلام! من دستیار Z.ai هستم. حافظه من بهینه‌سازی شده و مکالمات را به یاد می‌آورم. چطور می‌توانم کمک کنم؟');
+            }
+
+            const textarea = document.getElementById('message-input');
+            textarea.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+            
+            textarea.addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = Math.min(this.scrollHeight, 150) + 'px';
+            });
+
+            // هشدار در مورد خطای CORS (اگر فایل مستقیماً باز شده باشد)
+            if (window.location.protocol === 'file:') {
+                console.warn("CORS Warning: You are opening this file directly. API calls will fail. Use a local server or host it.");
+            }
+        };
+
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
+        }
+
+        function saveSettings() {
+            const key = document.getElementById('api-key').value.trim();
+            if (!key) return alert('کلید API را وارد کنید.');
+            
+            localStorage.setItem('zai_api_key', key);
+            localStorage.setItem('zai_model', document.getElementById('model-select').value);
+            
+            const status = document.getElementById('status-text');
+            status.innerText = 'ذخیره شد!';
+            setTimeout(() => { status.innerText = ''; }, 2000);
+            
+            if(window.innerWidth <= 768) toggleSidebar();
+        }
+
+        function clearChat() {
+            if(!confirm('آیا از پاک کردن کل تاریخچه مطمئن هستید؟')) return;
+            chatHistory = [];
+            localStorage.removeItem('zai_chat_history');
+            document.getElementById('chat-box').innerHTML = '';
+            addMessageToUI('ai', 'تاریخچه پاک شد. یک مکالمه جدید شروع کنید!');
+            if(window.innerWidth <= 768) toggleSidebar();
+        }
+
+        // رندر کردن تاریخچه با بهینه‌سازی
+        function renderHistory() {
+            const chatBox = document.getElementById('chat-box');
+            chatBox.innerHTML = '';
+            // فقط آخرین پیام‌های مجاز را رندر کن تا مرورگر سنگین نشود
+            const historyToRender = chatHistory.slice(-MAX_DOM_MESSAGES);
+            historyToRender.forEach(msg => {
+                appendMessageDOM(msg.role, msg.content);
+            });
+            scrollToBottom();
+        }
+
+        // اضافه کردن به UI و پاک کردن DOMهای قدیمی
+        function addMessageToUI(role, text) {
+            chatHistory.push({ role, content: text });
+            localStorage.setItem('zai_chat_history', JSON.stringify(chatHistory));
+            
+            appendMessageDOM(role, text);
+
+            // حذف قدیمی‌ترین پیام از DOM اگر از حد مجاز بیشتر شد
+            const chatBox = document.getElementById('chat-box');
+            if (chatBox.children.length > MAX_DOM_MESSAGES) {
+                chatBox.removeChild(chatBox.firstElementChild);
+            }
+            scrollToBottom();
+        }
+
+        function appendMessageDOM(role, text) {
+            const chatBox = document.getElementById('chat-box');
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `message ${role === 'assistant' ? 'ai' : role}`;
+            const icon = role === 'user' ? 'person' : 'smart_toy';
+            
+            let content = text;
+            if (role === 'ai' || role === 'assistant') {
+                content = marked.parse(text);
+            } else {
+                content = text.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>");
+            }
+
+            msgDiv.innerHTML = `
+                <div class="avatar"><span class="material-symbols-rounded">${icon}</span></div>
+                <div class="msg-content">${content}</div>
+            `;
+            
+            // هایلایت کدها فقط برای همین پیام جدید (بهینه)
+            msgDiv.querySelectorAll('pre code').forEach((block) => {
+                hljs.highlightElement(block);
+                const pre = block.parentElement;
+                const copyBtn = document.createElement('button');
+                copyBtn.className = 'copy-code-btn';
+                copyBtn.innerHTML = '<span class="material-symbols-rounded" style="font-size: 14px;">content_copy</span> کپی';
+                copyBtn.onclick = () => {
+                    navigator.clipboard.writeText(block.innerText);
+                    copyBtn.innerHTML = '<span class="material-symbols-rounded" style="font-size: 14px;">check</span> کپی شد';
+                    setTimeout(() => copyBtn.innerHTML = '<span class="material-symbols-rounded" style="font-size: 14px;">content_copy</span> کپی', 2000);
+                };
+                pre.appendChild(copyBtn);
+            });
+
+            chatBox.appendChild(msgDiv);
+        }
+
+        function scrollToBottom() {
+            const chatBox = document.getElementById('chat-box');
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        async function sendMessage() {
+            if (isGenerating) return;
+
+            const input = document.getElementById('message-input');
+            const sendBtn = document.getElementById('send-btn');
+            const chatBox = document.getElementById('chat-box');
+            const text = input.value.trim();
+            
+            const apiKey = localStorage.getItem('zai_api_key');
+            const model = localStorage.getItem('zai_model') || 'glm-4.7-flash';
+
+            if (!apiKey) return alert('ابتدا از منوی تنظیمات، کلید API را ذخیره کنید.');
+            if (!text) return;
+
+            input.value = '';
+            input.style.height = 'auto';
+            sendBtn.disabled = true;
+            isGenerating = true;
+
+            // 1. اضافه کردن پیام کاربر
+            addMessageToUI('user', text);
+
+            // 2. نمایش لودینگ
+            const loadingId = 'loading-' + Date.now();
+            chatBox.insertAdjacentHTML('beforeend', `
+                <div class="message ai" id="${loadingId}">
+                    <div class="avatar"><span class="material-symbols-rounded">smart_toy</span></div>
+                    <div class="msg-content">
+                        <div class="typing-dots"><span></span><span></span><span></span></div>
+                    </div>
+                </div>
+            `);
+            scrollToBottom();
+
+            try {
+                // 3. استخراج حافظه بهینه (Sliding Window)
+                // فقط N پیام آخر را برمی‌داریم تا API کند نشود
+                const recentHistory = chatHistory.slice(-MAX_HISTORY_TO_SEND);
+                
+                // ساخت آرایه نهایی برای ارسال
+                const messagesPayload = [
+                    { role: "system", content: SYSTEM_PROMPT },
+                    ...recentHistory
+                ];
+
+                const response = await fetch('https://api.z.ai/api/paas/v4/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        model: model,
+                        messages: messagesPayload
+                    })
+                });
+
+                const data = await response.json();
+                document.getElementById(loadingId)?.remove();
+
+                if (response.ok) {
+                    const aiReply = data.choices[0].message.content;
+                    addMessageToUI('assistant', aiReply);
+                } else {
+                    let errorMsg = data.error ? data.error.message : 'خطای ناشناخته';
+                    if (response.status === 401) errorMsg = 'کلید API نامعتبر است.';
+                    if (response.status === 429) errorMsg = 'محدودیت درخواست. کمی صبر کنید.';
+                    appendMessageDOM('ai', `❌ **خطا:** ${errorMsg}`);
+                    chatHistory.pop(); // پیام کاربر را از حافظه پاک کن تا تاریخچه خراب نشود
+                }
+            } catch (error) {
+                document.getElementById(loadingId)?.remove();
+                
+                let errorText = "❌ **خطای شبکه:** ارتباط با سرور برقرار نشد.";
+                if (window.location.protocol === 'file:') {
+                    errorText = "❌ **خطای CORS (مهم):**\nشما فایل را مستقیماً در مرورگر باز کرده‌اید. مرورگرها به دلایل امنیتی اجازه نمی‌دهند فایل لوکال به API وصل شود.\n\n**راه‌حل:** این فایل را روی یک هاست (مثل Netlify یا GitHub Pages) قرار دهید یا از افزونه Live Server در VS Code استفاده کنید.";
+                }
+                appendMessageDOM('ai', errorText);
+                chatHistory.pop();
+            } finally {
+                sendBtn.disabled = false;
+                isGenerating = false;
+                scrollToBottom();
+                if(window.innerWidth > 768) input.focus();
+            }
+        }
+    </script>
+</body>
+</html>
